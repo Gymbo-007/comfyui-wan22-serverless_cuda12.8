@@ -1,0 +1,39 @@
+{
+  "tests": [
+    {
+      "name": "handler_import_test",
+      "description": "Test that the handler can be imported successfully",
+      "command": "python -c 'from rp_handler import handler; print(\"Handler imported successfully\")'",
+      "timeout": 30
+    },
+    {
+      "name": "dependencies_test", 
+      "description": "Test that all required dependencies are installed",
+      "command": "python -c 'import runpod, requests, PIL; print(\"All dependencies available\")'",
+      "timeout": 30
+    },
+    {
+      "name": "workflow_file_test",
+      "description": "Test that the ComfyUI workflow file exists",
+      "command": "test -f /workspace/ComfyUI/workflows/Wan22_I2V_Native_3_stage.json && echo 'Workflow file exists'",
+      "timeout": 10
+    },
+    {
+      "name": "handler_validation_test",
+      "description": "Test handler input validation",
+      "command": "python -c 'import sys; sys.path.append(\".\"); exec(\"\"\"\\nclass MockRunPod:\\n    class serverless:\\n        @staticmethod\\n        def start(config): pass\\nimport sys\\nsys.modules[\\\"runpod\\\"] = MockRunPod()\\nfrom rp_handler import handler\\nresult = handler({\\\"input\\\": {}})\\nassert \\\"error\\\" in result, \\\"Should return error for missing image\\\"\\nprint(\\\"Handler validation working\\\")\\n\"\"\")'",
+      "timeout": 60
+    },
+    {
+      "name": "gpu_detection_test",
+      "description": "Test GPU detection and CUDA availability",
+      "command": "python -c 'import torch; print(f\"CUDA available: {torch.cuda.is_available()}\"); print(f\"GPU count: {torch.cuda.device_count() if torch.cuda.is_available() else 0}\")'",
+      "timeout": 30
+    }
+  ],
+  "requirements": {
+    "gpu": true,
+    "min_vram": 20,
+    "cuda_version": "12.6"
+  }
+}
