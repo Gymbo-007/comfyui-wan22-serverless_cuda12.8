@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
-"""
-RunPod Serverless Handler wrapper
-This file acts as the entry point that RunPod looks for
-"""
-
-import sys
-import os
-
-# Add workspace to path
-sys.path.insert(0, '/workspace')
-
-# Import the actual handler module
-import rp_handler
-
-# Re-export handler function for RunPod
-__all__ = ['handler']
+"""RunPod Serverless Handler Entry Point"""
 
 def handler(job):
-    """RunPod serverless handler entry point"""
-    return rp_handler.handler(job)
+    """Minimal RunPod handler for testing"""
+    try:
+        input_data = job.get('input', {})
+        return {
+            "status": "success",
+            "message": "Handler working correctly",
+            "received_input": input_data
+        }
+    except Exception as e:
+        return {
+            "status": "error", 
+            "message": f"Handler error: {str(e)}"
+        }
+
+# For direct testing
+if __name__ == "__main__":
+    print("✓ Handler module can be imported and executed")
+    test_job = {"input": {"test": "data"}}
+    result = handler(test_job)
+    print(f"✓ Handler test result: {result}")
