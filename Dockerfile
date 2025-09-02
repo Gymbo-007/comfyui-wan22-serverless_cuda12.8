@@ -71,11 +71,15 @@ COPY configs/ /workspace/configs/
 COPY workflows/ ${COMFYUI_PATH}/workflows/
 COPY rp_handler.py /workspace/
 COPY handler.py /workspace/
+COPY test_handler.py /workspace/
 COPY requirements.txt /workspace/
 RUN chmod +x /workspace/scripts/*.sh
 
 # Installation des dépendances RunPod
 RUN pip install -r /workspace/requirements.txt
+
+# Test handler import at build time
+RUN python /workspace/test_handler.py
 
 # Configuration des variables d'environnement pour RTX 5090 et CUDA 12.8
 ENV PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:512,expandable_segments:True"
@@ -96,8 +100,8 @@ EXPOSE 8188
 
 WORKDIR /workspace
 
-# Test ComfyUI startup during build
-RUN cd ${COMFYUI_PATH} && python main.py --quick-test-for-ci || echo "ComfyUI test completed"
+# Skip ComfyUI test - causes issues in RunPod build environment
+# RUN cd ${COMFYUI_PATH} && python main.py --quick-test-for-ci || echo "ComfyUI test completed"
 
 # Point d'entrée pour RunPod serverless
 CMD ["python", "-u", "/workspace/handler.py"]
