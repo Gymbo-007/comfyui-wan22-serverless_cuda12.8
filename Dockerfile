@@ -88,8 +88,5 @@ EXPOSE 8188
 
 WORKDIR /workspace
 
-# Script de démarrage adaptatif
-COPY start_service.sh /workspace/
-RUN chmod +x /workspace/start_service.sh
-
-CMD ["/workspace/start_service.sh"]
+# Point d'entrée pour RunPod serverless
+CMD ["python", "rp_handler.py"]
