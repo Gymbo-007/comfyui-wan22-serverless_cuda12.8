@@ -79,7 +79,7 @@ RUN chmod +x /workspace/scripts/*.sh
 RUN pip install -r /workspace/requirements.txt
 
 # Test handler import at build time
-RUN python /workspace/test_handler.py
+RUN cd /workspace && python test_handler.py
 
 # Configuration des variables d'environnement pour RTX 5090 et CUDA 12.8
 ENV PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:512,expandable_segments:True"
