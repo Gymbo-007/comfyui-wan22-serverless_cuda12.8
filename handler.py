@@ -16,6 +16,6 @@ import rp_handler
 # Re-export handler function for RunPod
 __all__ = ['handler']
 
-def handler(event):
+def handler(job):
     """RunPod serverless handler entry point"""
-    return rp_handler.handler(event)
+    return rp_handler.handler(job)

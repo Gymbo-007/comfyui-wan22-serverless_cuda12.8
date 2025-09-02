@@ -133,13 +133,13 @@ def get_output_videos(result):
     
     return videos
 
-def handler(event):
+def handler(job):
     """Main handler function for RunPod serverless"""
     try:
         print("Starting Wan 2.2 I2V processing...")
         
-        # Extract input parameters
-        input_data = event.get('input', {})
+        # Extract input parameters - RunPod format
+        input_data = job.get('input', {})
         
         # Required parameters
         if 'image' not in input_data:
@@ -188,7 +188,7 @@ def handler(event):
         return {
             'videos': outputs,
             'prompt_id': prompt_id,
-            'processing_time': time.time() - event.get('start_time', time.time())
+            'processing_time': time.time() - job.get('start_time', time.time())
         }
         
     except Exception as e:

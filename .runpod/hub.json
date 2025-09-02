@@ -2,29 +2,18 @@
   "title": "ComfyUI Wan 2.2 Serverless I2V",
   "description": "Production-ready serverless template for Wan 2.2 Image-to-Video generation with adaptive GPU optimization and 3-stage workflow",
   "category": "video",
-  "deployment": "serverless",
+  "type": "serverless",
   "icon": "https://raw.githubusercontent.com/Gymbo-007/comfyui-wan22-serverless_cuda12.8/main/assets/icon.png",
   "tags": ["image-to-video", "wan-2.2", "comfyui", "video-generation", "ai", "serverless"],
   "author": "Gymbo-007",
   "version": "1.0.0",
   "license": "MIT",
   "readme": "README.md",
-  "handler": "handler.handler",
-  "machine": {
-    "gpu": {
-      "min_vram": 20,
-      "recommended_vram": 24,
-      "supports": ["RTX 4090", "RTX 5090", "RTX 6000 Ada", "A5000", "H100"]
-    },
-    "cpu": {
-      "min_cores": 4,
-      "recommended_cores": 8
-    },
-    "memory": {
-      "min_ram": 16,
-      "recommended_ram": 32
-    },
-    "disk_size": 50
+  "config": {
+    "runsOn": "GPU",
+    "containerDiskInGb": 50,
+    "gpuCount": 1,
+    "gpuIds": ["NVIDIA_RTX_4090", "NVIDIA_RTX_5090", "NVIDIA_RTX_6000_ADA", "NVIDIA_A5000", "NVIDIA_H100"]
   },
   "environment_variables": {
     "DEFAULT_QUANT": {
