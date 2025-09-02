@@ -9,7 +9,7 @@
   "version": "1.0.0",
   "license": "MIT",
   "readme": "README.md",
-  "handler": "rp_handler.py",
+  "handler": "handler.py",
   "machine": {
     "gpu": {
       "min_vram": 20,

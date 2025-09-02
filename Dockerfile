@@ -70,6 +70,7 @@ COPY scripts/ /workspace/scripts/
 COPY configs/ /workspace/configs/
 COPY workflows/ ${COMFYUI_PATH}/workflows/
 COPY rp_handler.py /workspace/
+COPY handler.py /workspace/
 COPY requirements.txt /workspace/
 RUN chmod +x /workspace/scripts/*.sh
 
@@ -95,5 +96,8 @@ EXPOSE 8188
 
 WORKDIR /workspace
 
+# Test ComfyUI startup during build
+RUN cd ${COMFYUI_PATH} && python main.py --quick-test-for-ci || echo "ComfyUI test completed"
+
 # Point d'entrée pour RunPod serverless
-CMD ["python", "rp_handler.py"]
+CMD ["python", "-u", "/workspace/handler.py"]

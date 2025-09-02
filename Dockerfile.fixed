@@ -1,0 +1,72 @@
+# Dockerfile - Version corrigée pour éviter les erreurs
+FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV COMFYUI_PATH=/workspace/ComfyUI
+ENV CUDA_HOME=/usr/local/cuda
+ENV PATH=${CUDA_HOME}/bin:${PATH}
+ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
+
+# Installation des dépendances système
+RUN apt-get update && apt-get install -y \
+    python3.11 python3.11-dev python3.11-venv python3-pip \
+    git wget curl build-essential \
+    ffmpeg libgl1 libglib2.0-0 libsm6 libxext6 libxrender-dev \
+    libgomp1 libgoogle-perftools-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Alias Python
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 && \
+    update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
+
+# Installation PyTorch avec version compatible CUDA 12.4
+RUN pip install --upgrade pip && \
+    pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu124
+
+# Installation ComfyUI
+WORKDIR /workspace
+RUN git clone https://github.com/comfyanonymous/ComfyUI.git
+WORKDIR ${COMFYUI_PATH}
+RUN pip install -r requirements.txt
+
+# Installation des custom nodes essentiels (avec gestion d'erreur)
+RUN cd custom_nodes && \
+    git clone https://github.com/ltdrdata/ComfyUI-Manager.git || true && \
+    git clone https://github.com/kijai/ComfyUI-KJNodes.git || true && \
+    git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git || true && \
+    git clone https://github.com/city96/ComfyUI-GGUF.git || true && \
+    git clone https://github.com/WASasquatch/was-node-suite-comfyui.git || true && \
+    git clone https://github.com/rgthree/rgthree-comfy.git || true && \
+    git clone https://github.com/pythongosssss/ComfyUI-Custom-Scripts.git || true
+
+# Installation des dépendances des custom nodes (plus robuste)
+RUN cd custom_nodes && \
+    find . -name "requirements.txt" -exec pip install -r {} \; 2>/dev/null || true
+
+# Création des dossiers nécessaires
+RUN mkdir -p models/text_encoders models/vae models/unet models/loras \
+    models/upscale_models input output temp
+
+# Copie des fichiers
+COPY scripts/ /workspace/scripts/
+COPY configs/ /workspace/configs/  
+COPY workflows/ ${COMFYUI_PATH}/workflows/
+COPY rp_handler.py handler.py /workspace/
+COPY requirements.txt /workspace/
+RUN chmod +x /workspace/scripts/*.sh
+
+# Installation des dépendances RunPod
+RUN pip install -r /workspace/requirements.txt
+
+# Configuration des variables d'environnement optimales
+ENV PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:512"
+ENV CUDA_MODULE_LOADING=LAZY
+ENV TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0"
+
+EXPOSE 8188
+WORKDIR /workspace
+
+# Point d'entrée pour RunPod serverless
+CMD ["python", "rp_handler.py"]

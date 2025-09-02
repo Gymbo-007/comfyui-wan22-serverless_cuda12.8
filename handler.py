@@ -1,9 +1,21 @@
 #!/usr/bin/env python3
 """
-RunPod Hub handler entry point - delegates to rp_handler.py
+RunPod Serverless Handler wrapper
+This file acts as the entry point that RunPod looks for
 """
 
-from rp_handler import handler
+import sys
+import os
 
-# Export the handler function for RunPod Hub
+# Add workspace to path
+sys.path.insert(0, '/workspace')
+
+# Import the actual handler module
+import rp_handler
+
+# Re-export handler function for RunPod
 __all__ = ['handler']
+
+def handler(event):
+    """RunPod serverless handler entry point"""
+    return rp_handler.handler(event)
