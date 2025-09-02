@@ -1,0 +1,52 @@
+{
+  "profiles": {
+    "RTX_4090": {
+      "vram_mb": 24576,
+      "compute_capability": "8.9",
+      "default_quantization": "Q5_K_S",
+      "fallback_quantization": "Q4_K_S",
+      "max_resolution": 832,
+      "batch_size": 1,
+      "sage_attention": "auto",
+      "fp16_accumulation": true
+    },
+    "RTX_5090": {
+      "vram_mb": 32768,
+      "compute_capability": "10.0",
+      "default_quantization": "Q6_K",
+      "fallback_quantization": "Q5_K_S",
+      "max_resolution": 1024,
+      "batch_size": 2,
+      "sage_attention": "triton",
+      "fp16_accumulation": false,
+      "use_fp4": true
+    },
+    "RTX_6000_Ada": {
+      "vram_mb": 49152,
+      "compute_capability": "8.9",
+      "default_quantization": "Q8_0",
+      "fallback_quantization": "Q6_K",
+      "max_resolution": 1280,
+      "batch_size": 4,
+      "sage_attention": "triton",
+      "fp16_accumulation": false
+    },
+    "RTX_A5000": {
+      "vram_mb": 24576,
+      "compute_capability": "8.6",
+      "default_quantization": "Q5_K_S",
+      "fallback_quantization": "Q4_K_S",
+      "max_resolution": 832,
+      "batch_size": 1,
+      "sage_attention": "auto",
+      "fp16_accumulation": true
+    }
+  },
+  "quantization_vram_requirements": {
+    "Q4_K_S": 10240,
+    "Q5_K_S": 12288,
+    "Q5_K_M": 13312,
+    "Q6_K": 14336,
+    "Q8_0": 16384
+  }
+}

@@ -1,0 +1,29 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  wan22-comfyui:
+    build: .
+    image: wan22-comfyui:latest
+    container_name: wan22-comfyui
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    ports:
+      - "8188:8188"
+    volumes:
+      - comfyui-data:/workspace/ComfyUI
+      - network-disk:/network-disk
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  comfyui-data:
+  network-disk:
