@@ -1,5 +1,5 @@
 # Dockerfile
-FROM nvidia/cuda:12.6.0-devel-ubuntu22.04
+FROM nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
@@ -10,7 +10,7 @@ ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
 
 # Installation des dépendances système
 RUN apt-get update && apt-get install -y \
-    python3.11 python3.11-dev python3-pip \
+    python3.11 python3.11-dev python3.11-venv python3-pip \
     git wget curl build-essential \
     ffmpeg libgl1 libglib2.0-0 libsm6 libxext6 libxrender-dev \
     libgomp1 libgoogle-perftools-dev \
@@ -18,18 +18,18 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Alias Python et création du venv
+# Alias Python
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 && \
     update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
-# Création et activation du virtual environment
-RUN python -m venv /venv
+# Création du virtual environment avec python3.11-venv
+RUN python3.11 -m venv /venv --system-site-packages
 ENV PATH="/venv/bin:$PATH"
 ENV VIRTUAL_ENV="/venv"
 
-# Installation PyTorch avec CUDA 12.6 dans le venv
+# Installation PyTorch nightly avec CUDA 12.8 pour RTX 5090 (sm_120)
 RUN pip install --upgrade pip && \
-    pip install torch==2.5.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+    pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
 
 # Installation ComfyUI
 WORKDIR /workspace
@@ -76,13 +76,20 @@ RUN chmod +x /workspace/scripts/*.sh
 # Installation des dépendances RunPod
 RUN pip install -r /workspace/requirements.txt
 
-# Configuration des variables d'environnement optimales
-ENV PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:512"
+# Configuration des variables d'environnement pour RTX 5090 et CUDA 12.8
+ENV PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:512,expandable_segments:True"
 ENV CUDA_MODULE_LOADING=LAZY
 ENV TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0;10.0"
 ENV TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD=10737418240
+
+# SageAttention 2+ configuration (may have issues with RTX 5090 sm_120)
 ENV SAGE_ATTENTION_IMPL=triton
 ENV SAGE_ATTENTION_AUTOTUNE=1
+ENV SAGE_ATTENTION_VERSION=2
+
+# RTX 5090 Blackwell support
+ENV TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1
+ENV CUDA_LAUNCH_BLOCKING=0
 
 EXPOSE 8188
 
