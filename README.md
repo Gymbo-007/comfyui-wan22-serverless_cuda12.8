@@ -1,6 +1,6 @@
-# Wan 2.2 Image-to-Video RunPod Template
+# ComfyUI Wan 2.2 RunPod Template
 
-Template RunPod pour la génération vidéo I2V avec Wan 2.2, optimisé pour le serverless et les instances GPU.
+Production-ready Docker template for ComfyUI Wan 2.2 Image-to-Video generation on RunPod serverless.
 
 ## 🚀 Fonctionnalités
 
