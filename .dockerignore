@@ -1,0 +1,35 @@
+# Reduce Docker build context and exclude dev-only files
+
+# VCS
+.git
+.git/**
+
+# Python caches
+**/__pycache__/
+**/*.py[cod]
+**/*.so
+**/*.pyd
+**/*.pyo
+**/*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.cache/
+
+# Editors/OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs and runtime artifacts
+logs/
+**/*.log
+
+# Project-specific: exclude tooling not needed in final image
+shim/tools/
+
+# If a local clone appears in context, don't send it (we clone at runtime)
+ComfyUI/
+models/
+workspace/

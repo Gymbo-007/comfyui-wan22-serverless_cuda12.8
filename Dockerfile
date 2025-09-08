@@ -32,7 +32,11 @@ RUN mkdir -p /workspace
 COPY start.sh /usr/local/bin/start.sh
 RUN dos2unix /usr/local/bin/start.sh || true && chmod +x /usr/local/bin/start.sh
 
+# Shim service code
+ENV SHIM_DIR=/opt/shim
+COPY shim ${SHIM_DIR}
+
 VOLUME ["/workspace"]
-EXPOSE 8188 8888
+EXPOSE 8188 8888 8080
 
 ENTRYPOINT ["/usr/local/bin/start.sh"]
