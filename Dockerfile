@@ -1,4 +1,4 @@
-# PyTorch 2.8 + CUDA 12.8 + cuDNN9 (DEVEL, pour compiler SageAttention)
+# PyTorch 2.8 + CUDA 12.8 + cuDNN9 (DEVEL)
 FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-devel
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -14,28 +14,25 @@ ENV DEBIAN_FRONTEND=noninteractive \
     JUPYTER_IP=0.0.0.0 \
     JUPYTER_TOKEN=""
 
-# Packages système utiles (root)
+# Outils système + confort terminal
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git curl ca-certificates tzdata \
     python3-venv python3-dev build-essential \
     ffmpeg wget aria2 unzip dos2unix \
+    bash-completion tmux htop ripgrep fd-find bat lsb-release \
+ && ln -sf /usr/bin/fdfind /usr/local/bin/fd \
+ && ln -sf /usr/bin/batcat /usr/local/bin/bat \
  && rm -rf /var/lib/apt/lists/*
 
-# Pré-installer JupyterLab au niveau système
+# JupyterLab global
 RUN pip install --no-cache-dir jupyterlab
 
-# Créer le workspace
+# Workspace & start
 RUN mkdir -p /workspace
-
-# Script de démarrage
 COPY start.sh /usr/local/bin/start.sh
 RUN dos2unix /usr/local/bin/start.sh || true && chmod +x /usr/local/bin/start.sh
 
-# Tout le mutable vit sur /workspace (monte ton Network Volume ici)
 VOLUME ["/workspace"]
-
-# Ports exposés : ComfyUI + JupyterLab
 EXPOSE 8188 8888
 
-# Pas de HEALTHCHECK (évite les restarts pendant installs/compil)
 ENTRYPOINT ["/usr/local/bin/start.sh"]
