@@ -1,10 +1,15 @@
 # /opt/shim/app.py
-import os, json, time, uuid, re, pathlib, logging
-from typing import Optional, List, Dict, Any
+import os
+import json
+import time
+import uuid
+import logging
+from typing import Dict, Any, Optional, List
 
 import httpx
-from fastapi import FastAPI, UploadFile, File, Form, Request, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Depends, Security
+from fastapi.security import APIKeyHeader, APIKeyQuery
+from pathlib import Path
 
 log = logging.getLogger("shim")
 logging.basicConfig(level=logging.INFO)
@@ -12,348 +17,263 @@ logging.basicConfig(level=logging.INFO)
 COMFY_HOST = os.getenv("COMFY_HOST", "127.0.0.1")
 COMFY_PORT = int(os.getenv("COMFY_PORT", "8188"))
 COMFY_API_URL = os.getenv("COMFY_API_URL", f"http://127.0.0.1:{COMFY_PORT}")
+DEFAULT_WORKFLOW_PATH = os.getenv("SHIM_WORKFLOW_PATH", "/workspace/ComfyUI/user/default/workflows/_auto_default.json")
+DEFAULT_WORKFLOW = Path(DEFAULT_WORKFLOW_PATH).resolve()
 
-# Fallback historique (évite 500 si rien n’est configuré)
-FALLBACK_WORKFLOW = "/workspace/ComfyUI/user/default/workflows/Wan22_I2V_Native_3_stage.json"
+_WORKFLOW_ROOT_ENV = os.getenv("SHIM_WORKFLOW_ROOT", "")
+_ADDITIONAL_ROOTS_ENV = os.getenv("SHIM_ADDITIONAL_WORKFLOW_ROOTS", "")
+WORKFLOW_ROOTS: List[Path] = []
+for raw in (_WORKFLOW_ROOT_ENV.split(":") if _WORKFLOW_ROOT_ENV else []):
+    raw = raw.strip()
+    if raw:
+        WORKFLOW_ROOTS.append(Path(raw).resolve())
+if not WORKFLOW_ROOTS:
+    WORKFLOW_ROOTS.append(DEFAULT_WORKFLOW.parent)
+for raw in (_ADDITIONAL_ROOTS_ENV.split(":") if _ADDITIONAL_ROOTS_ENV else []):
+    raw = raw.strip()
+    if raw:
+        WORKFLOW_ROOTS.append(Path(raw).resolve())
+_seen_roots = set()
+_unique_roots: List[Path] = []
+for root in WORKFLOW_ROOTS:
+    key = str(root)
+    if key not in _seen_roots:
+        _seen_roots.add(key)
+        _unique_roots.append(root)
+WORKFLOW_ROOTS = _unique_roots
 
-# Emplacements de config "à chaud" (éditables via Jupyter)
-CONFIG_PATHS = [
-    "/workspace/shim/WORKFLOW_PATH.txt",
-    "/opt/shim/WORKFLOW_PATH.txt",
-]
+SHIM_API_KEY = os.getenv("SHIM_API_KEY")
+REQUIRE_API_KEY = os.getenv("SHIM_REQUIRE_API_KEY", "1").strip().lower() not in {"0", "false", "no"}
+if REQUIRE_API_KEY and not SHIM_API_KEY:
+    log.warning("SHIM_REQUIRE_API_KEY=1 but SHIM_API_KEY is not set; requests will be rejected.")
+log.info("Allowed workflow roots: %s", ", ".join(str(p) for p in WORKFLOW_ROOTS))
+CLIENT_TIMEOUT = float(os.getenv("SHIM_HTTP_TIMEOUT", "120"))
+POLL_INTERVAL = float(os.getenv("SHIM_POLL_INTERVAL", "0.75"))
+DEFAULT_WAIT_LIMIT = float(os.getenv("SHIM_MAX_WAIT_SECONDS", "600"))
 
-JOBS: Dict[str, Dict[str, Any]] = {}
-app = FastAPI(title="ComfyUI I2V Shim", version="0.3.1")
+app = FastAPI(title="WAN 2.2 Shim", version="1.0.0")
 
+# -------------------------------
+# Helpers
+# -------------------------------
+def _now_ms() -> int:
+    return int(time.time() * 1000)
 
-# ---------- helpers ----------
+async def _comfy_get(client: httpx.AsyncClient, path: str) -> Dict[str, Any]:
+    r = await client.get(f"{COMFY_API_URL.rstrip('/')}{path}")
+    r.raise_for_status()
+    if r.headers.get("content-type", "").startswith("application/json"):
+        return r.json()
+    return {}
 
-def get_template_path() -> str:
-    """
-    Résout le chemin du template dans l’ordre suivant:
-      1) Fichier /workspace/shim/WORKFLOW_PATH.txt (ou /opt/shim/WORKFLOW_PATH.txt)
-      2) Variable d’environnement SHIM_WORKFLOW_PATH
-      3) Variable d’environnement DEFAULT_WORKFLOW
-      4) FALLBACK_WORKFLOW (safe)
-    """
-    for p in CONFIG_PATHS:
-        try:
-            if os.path.isfile(p):
-                content = pathlib.Path(p).read_text(encoding="utf-8").strip()
-                if content:
-                    return content
-        except Exception:
-            pass
-    return (
-        os.getenv("SHIM_WORKFLOW_PATH")
-        or os.getenv("DEFAULT_WORKFLOW")
-        or FALLBACK_WORKFLOW
-    )
+async def _comfy_post(client: httpx.AsyncClient, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    r = await client.post(f"{COMFY_API_URL.rstrip('/')}{path}", json=payload)
+    r.raise_for_status()
+    return r.json()
 
+async def _queue_prompt(client: httpx.AsyncClient, prompt: Dict[str, Any], client_id: str) -> str:
+    payload = {"prompt": prompt, "client_id": client_id}
+    data = await _comfy_post(client, "/prompt", payload)
+    pid = data.get("prompt_id") or data.get("promptId")
+    if not pid:
+        raise HTTPException(500, "Comfy did not return a prompt_id")
+    return pid
 
-def _safe_ext(name: str) -> str:
-    ext = os.path.splitext(name or "")[1].lower()
-    return ext if re.fullmatch(r"\.[a-z0-9]{1,5}", ext or "") else ".png"
-
-
-def _safe_name(original: Optional[str]) -> str:
-    return f"input_{uuid.uuid4().hex}{_safe_ext(original or '')}"
-
-
-def _walk_replace(x, mapping: Dict[str, Any]):
-    if isinstance(x, dict):
-        return {k: _walk_replace(v, mapping) for k, v in x.items()}
-    if isinstance(x, list):
-        return [_walk_replace(v, mapping) for v in x]
-    if isinstance(x, str) and x in mapping:
-        return mapping[x]
-    return x
-
-
-def _normalize_node_dict(d: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """
-    Normalise une entrée de nœud en { 'class_type': str, 'inputs': dict }.
-    Accepte 'class_type' ou 'type' comme alias.
-    """
-    if not isinstance(d, dict):
-        return None
-    ct = d.get("class_type") or d.get("type")
-    if not ct:
-        return None
-    return {"class_type": ct, "inputs": d.get("inputs", {})}
-
-
-def _to_api_prompt(obj) -> Dict[str, Any]:
-    """
-    Convertit en API Prompt:
-      - dict déjà API prompt (valeurs avec class_type/type + inputs)  ✔︎
-      - list de nœuds [{'id', 'class_type'/ 'type', 'inputs'}, ...]  ✔︎
-    N’essaie PAS de convertir un workflow UI (graph éditeur).
-    """
-    # dict ?
-    if isinstance(obj, dict):
-        values = list(obj.values())
-        if values and all(isinstance(v, dict) for v in values):
-            normalized = {}
-            for k, v in obj.items():
-                nv = _normalize_node_dict(v)
-                if nv is None:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Template dict trouvé mais certaines entrées n’ont pas 'class_type'/'type' et 'inputs' (probable workflow UI).",
-                    )
-                normalized[str(k)] = nv
-            return normalized
-        raise HTTPException(
-            status_code=400,
-            detail="Template dict non conforme (probable workflow UI).",
-        )
-
-    # list ?
-    if isinstance(obj, list):
-        api: Dict[str, Any] = {}
-        for idx, node in enumerate(obj, 1):
-            if isinstance(node, dict):
-                nv = _normalize_node_dict(node)
-                if nv is None:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Élément de liste non conforme (pas de 'class_type'/'type').",
-                    )
-                nid = str(node.get("id", idx))
-                api[nid] = nv
-            elif isinstance(node, (list, tuple)) and len(node) == 2 and isinstance(node[1], dict):
-                nv = _normalize_node_dict(node[1])
-                if nv is None:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Élément (pair) de liste non conforme (pas de 'class_type'/'type').",
-                    )
-                nid = str(node[0])
-                api[nid] = nv
-            else:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Élément de liste non pris en charge pour un API Prompt.",
-                )
-        if not api:
-            raise HTTPException(status_code=400, detail="Liste vide/non valide pour un API Prompt.")
-        return api
-
-    raise HTTPException(status_code=400, detail="Template JSON non supporté (ni dict, ni liste).")
-
-
-def _load_api_prompt_template(path: str) -> Dict[str, Any]:
-    if not os.path.isfile(path):
-        raise HTTPException(status_code=500, detail=f"Template introuvable: {path}")
+async def _history_for(client: httpx.AsyncClient, prompt_id: str) -> Optional[Dict[str, Any]]:
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except json.JSONDecodeError as e:
-        raise HTTPException(status_code=500, detail=f"Template JSON invalide: {e}")
-    api = _to_api_prompt(data)
-    return api
+        return await _comfy_get(client, f"/history/{prompt_id}")
+    except Exception:
+        return None
+
+async def _queue_state(client: httpx.AsyncClient) -> Dict[str, Any]:
+    return await _comfy_get(client, "/queue")
+
+def _prompt_in_queue(queue: Dict[str, Any], prompt_id: str) -> bool:
+    buckets = ("queue_running", "queue_pending", "running", "queue")
+    for bucket in buckets:
+        entries = queue.get(bucket, [])
+        for entry in entries:
+            if isinstance(entry, dict) and (entry.get("id") == prompt_id or entry.get("prompt_id") == prompt_id):
+                return True
+            if isinstance(entry, (list, tuple)) and prompt_id in entry:
+                return True
+    return False
 
 
-async def _comfy_upload_image(client: httpx.AsyncClient, image_bytes: bytes, filename: str) -> str:
-    files = {"image": (filename, image_bytes, "application/octet-stream")}
-    params = {"type": "input", "subfolder": ""}
-    r = await client.post(f"{COMFY_API_URL}/upload/image", files=files, params=params)
-    if r.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"ComfyUI upload failed: HTTP {r.status_code} - {r.text}")
-    # {"name": "...", "subfolder": "", "type": "input"}
-    return filename
+def _load_workflow(path: str) -> Dict[str, Any]:
+    resolved = _resolve_workflow_path(path)
+    try:
+        with resolved.open("r", encoding="utf-8") as f:
+            obj = json.load(f)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(400, f"Workflow JSON invalide: {e}")
+    if isinstance(obj, dict) and ("prompt" in obj or "workflow" in obj or "nodes" in obj):
+        if "prompt" in obj:
+            return obj["prompt"]
+        if "workflow" in obj:
+            return obj["workflow"]
+        return obj
+    raise HTTPException(400, "Workflow non supporté (attendu dict Comfy API ou export UI).")
+
+def _normalize_bool(v: Optional[str]) -> Optional[bool]:
+    if v is None:
+        return None
+    s = str(v).strip().lower()
+    if s in ("1", "true", "yes", "on"): return True
+    if s in ("0", "false", "no", "off"): return False
+    return None
+
+def _path_is_allowed(path: Path) -> bool:
+    for root in WORKFLOW_ROOTS:
+        try:
+            path.relative_to(root)
+            return True
+        except ValueError:
+            continue
+    return False
 
 
-async def _comfy_submit_prompt(client: httpx.AsyncClient, prompt_graph: Dict[str, Any]) -> str:
-    client_id = uuid.uuid4().hex
-    payload = {"client_id": client_id, "prompt": prompt_graph}
-    r = await client.post(f"{COMFY_API_URL}/prompt", json=payload)
-    if r.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"ComfyUI prompt submission failed: HTTP {r.status_code} - {r.text}")
-    data = r.json()
-    prompt_id = data.get("prompt_id") or data.get("id") or data.get("name")
-    if not prompt_id:
-        raise HTTPException(status_code=502, detail=f"ComfyUI did not return a prompt_id: {data}")
-    JOBS[prompt_id] = {"client_id": client_id, "created_at": time.time(), "status": "queued"}
-    return prompt_id
+def _resolve_workflow_path(raw_path: str) -> Path:
+    if not raw_path:
+        raise HTTPException(400, "Workflow introuvable: chemin vide")
+    candidate = Path(raw_path)
+    search: List[Path] = []
+    if candidate.is_absolute():
+        search.append(candidate)
+    else:
+        for root in WORKFLOW_ROOTS:
+            search.append(root / candidate)
+    if not search:
+        search.append(candidate)
+    denied = True
+    for item in search:
+        resolved = item.resolve()
+        if not _path_is_allowed(resolved):
+            continue
+        denied = False
+        if resolved.exists():
+            return resolved
+    if denied:
+        raise HTTPException(403, f"Workflow path non autorisé: {raw_path}")
+    raise HTTPException(400, f"Workflow introuvable: {raw_path}")
 
 
-async def _comfy_queue(client: httpx.AsyncClient) -> Dict[str, Any]:
-    r = await client.get(f"{COMFY_API_URL}/queue")
-    return r.json() if r.status_code == 200 else {}
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+api_key_query = APIKeyQuery(name="api_key", auto_error=False)
 
 
-async def _comfy_history(client: httpx.AsyncClient, job_id: str) -> Dict[str, Any]:
-    r = await client.get(f"{COMFY_API_URL}/history/{job_id}")
-    return r.json() if r.status_code == 200 else {}
+async def require_api_key(header_key: Optional[str] = Security(api_key_header), query_key: Optional[str] = Security(api_key_query)) -> None:
+    if not REQUIRE_API_KEY:
+        return
+    if not SHIM_API_KEY:
+        raise HTTPException(500, "Shim API key not configured")
+    provided = header_key or query_key
+    if not provided or provided != SHIM_API_KEY:
+        raise HTTPException(401, "Invalid or missing API key")
 
+# -------------------------------
+# Routes
+# -------------------------------
+@app.get("/health")
+async def health(_: None = Depends(require_api_key)):
+    async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
+        try:
+            data = await _comfy_get(client, "/system_stats")
+            return {"ok": True, "comfy": True, "stats": data}
+        except Exception:
+            return {"ok": True, "comfy": False}
 
-def _outputs_from_history(history: Dict[str, Any]) -> List[Dict[str, Any]]:
-    # Accepte { "history": { id: {...} } } ou { id: {...} }
-    h = history.get("history", history)
-    if not isinstance(h, dict) or not h:
-        return []
-    entry = next(iter(h.values()))
-    outputs = []
-    for node_out in (entry.get("outputs") or {}).values():
-        for it in (node_out.get("images") or []) + (node_out.get("videos") or []):
-            fn = it.get("filename"); sub = it.get("subfolder",""); typ = it.get("type","output")
-            if fn:
-                outputs.append({
-                    "filename": fn,
-                    "subfolder": sub,
-                    "type": typ,
-                    "url": f"{COMFY_API_URL}/view?filename={fn}&subfolder={sub}&type={typ}",
-                })
-    return outputs
-
-
-# ---------- API ----------
-
-@app.get("/")
-async def root():
-    path = get_template_path()
-    exists = os.path.isfile(path)
-    return {"service": "comfyui-shim", "comfy_api": COMFY_API_URL, "workflow": path, "exists": exists}
-
-
-@app.post("/config/workflow")
-async def set_workflow(path: str = Form(...)):
-    """
-    Modifie le chemin de workflow pour CE process (sans redéploiement) en écrivant
-    /workspace/shim/WORKFLOW_PATH.txt
-    """
-    if not path:
-        raise HTTPException(status_code=400, detail="path manquant")
-    pathlib.Path("/workspace/shim").mkdir(parents=True, exist_ok=True)
-    pathlib.Path("/workspace/shim/WORKFLOW_PATH.txt").write_text(path, encoding="utf-8")
-    return {"ok": True, "workflow": path}
-
-
-@app.post("/i2v")
-async def create_i2v(
+@app.post("/run")
+async def run(
     request: Request,
-    image: Optional[UploadFile] = File(None),
-    image_url: Optional[str] = Form(None),
-    prompt: Optional[str] = Form(None),
-    negative: Optional[str] = Form(None),
-    fps: Optional[int] = Form(None),
-    duration_s: Optional[float] = Form(None),
-    seed: Optional[int] = Form(None),
-    guidance: Optional[float] = Form(None),
-    steps: Optional[int] = Form(None),
-    sampler: Optional[str] = Form(None),
-    width: Optional[int] = Form(None),
-    height: Optional[int] = Form(None),
+    workflow: Optional[UploadFile] = File(None),
+    workflow_path: Optional[str] = Form(None),
+    wait: Optional[str] = Form("true"),
+    wait_timeout_s: Optional[float] = Form(None),
+    client_id: Optional[str] = Form(None),
+    _: None = Depends(require_api_key),
 ):
-    # JSON body support
-    if request.headers.get("content-type","").startswith("application/json"):
-        body = await request.json()
-        image_url = body.get("image_url")
-        prompt = body.get("prompt")
-        negative = body.get("negative")
-        fps = body.get("fps")
-        duration_s = body.get("duration_s")
-        seed = body.get("seed")
-        guidance = body.get("guidance")
-        steps = body.get("steps")
-        sampler = body.get("sampler")
-        width = body.get("width")
-        height = body.get("height")
+    """
+    Lance un workflow Comfy. Fournir:
+      - `workflow` (upload JSON) OU `workflow_path` (chemin sur le pod) OU rien (utilise DEFAULT_WORKFLOW)
+      - `wait` = true/false (attendre la complétion)
+    """
+    if workflow is not None:
+        content = await workflow.read()
+        try:
+            prompt = json.loads(content.decode("utf-8"))
+        except Exception as e:
+            raise HTTPException(400, f"JSON invalide: {e}")
+    else:
+        chosen = workflow_path or str(DEFAULT_WORKFLOW)
+        prompt = _load_workflow(chosen)
 
-    if not prompt:
-        raise HTTPException(status_code=400, detail="Missing required field: prompt")
-    if fps is None or duration_s is None:
-        raise HTTPException(status_code=400, detail="Missing required fields: fps and duration_s")
+    cid = client_id or f"shim-{uuid.uuid4().hex[:12]}"
 
-    num_frames = int(round(int(fps) * float(duration_s)))
+    async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
+        prompt_id = await _queue_prompt(client, prompt, cid)
 
-    # Résout et charge le template d'API Prompt
-    tpl_path = get_template_path()
-    log.info(f"[shim] Using template: {tpl_path}")
-    api_prompt_template = _load_api_prompt_template(tpl_path)
+        w = _normalize_bool(wait)
+        try:
+            max_wait = float(wait_timeout_s) if wait_timeout_s is not None else DEFAULT_WAIT_LIMIT
+        except (TypeError, ValueError):
+            raise HTTPException(400, "wait_timeout_s invalide")
+        if w is False or max_wait <= 0:
+            return {"job_id": prompt_id, "status": "queued"}
 
-    # Upload/lecture image
-    async with httpx.AsyncClient(timeout=60) as client:
-        if image is not None:
-            img_bytes = await image.read()
-            img_name = _safe_name(image.filename)
-        elif image_url:
-            r = await client.get(image_url)
-            if r.status_code != 200:
-                raise HTTPException(status_code=400, detail=f"Failed to fetch image_url: HTTP {r.status_code}")
-            img_bytes = r.content
-            clean = image_url.split("?")[0].split("#")[0]
-            img_name = _safe_name(os.path.basename(clean) or "input.png")
-        else:
-            raise HTTPException(status_code=400, detail="Provide either image (file) or image_url")
+        deadline_ms = _now_ms() + int(max_wait * 1000)
+        timeout_detail = {"message": f"Timeout en attente de Comfy ({max_wait:g}s)", "job_id": prompt_id}
+        while True:
+            hist = await _history_for(client, prompt_id)
+            if hist and prompt_id in hist:
+                entry = hist[prompt_id]
+                status = entry.get("status") or ("completed" if entry.get("outputs") else "running")
+                outs = entry.get("outputs", {})
+                return {"job_id": prompt_id, "status": status, "outputs": outs}
 
-        uploaded_name = await _comfy_upload_image(client, img_bytes, img_name)
+            if _now_ms() >= deadline_ms:
+                raise HTTPException(status_code=504, detail=timeout_detail)
 
-        # ---------- valeurs par défaut typées (évite les '' qui cassent la validation) ----------
-        seed_val = int(seed) if seed is not None else (int.from_bytes(os.urandom(4), "big") % (2**31))
-        guidance_val = float(guidance) if guidance is not None else 4.5     # CFG
-        steps_val = int(steps) if steps is not None else 20                  # steps
-        sampler_val = (sampler or "dpmpp_2m").strip()                        # sampler existant par défaut
+            queue_state = await _queue_state(client)
+            if not _prompt_in_queue(queue_state, prompt_id) and _now_ms() >= deadline_ms:
+                raise HTTPException(status_code=504, detail=timeout_detail)
 
-        # width/height : uniquement si fournis (ne pas écraser le template)
-        wh_map: Dict[str, Any] = {}
-        if width is not None:
-            wh_map["__WIDTH__"] = int(width)
-        if height is not None:
-            wh_map["__HEIGHT__"] = int(height)
+            await asyncio_sleep(POLL_INTERVAL)
 
-        mapping = {
-            "__PROMPT__": prompt,
-            "__NEGATIVE__": negative or "",
-            "__FPS__": int(fps),
-            "__DURATION_S__": float(duration_s),
-            "__NUM_FRAMES__": num_frames,
-            "__SEED__": seed_val,
-            "__GUIDANCE__": guidance_val,
-            "__STEPS__": steps_val,
-            "__SAMPLER__": sampler_val,
-            "__INPUT_IMAGE_FILENAME__": uploaded_name,
-            **wh_map,  # n’ajoute WIDTH/HEIGHT que si définis
+@app.get("/status/{job_id}")
+async def status(job_id: str, _: None = Depends(require_api_key)):
+    async with httpx.AsyncClient(timeout=CLIENT_TIMEOUT) as client:
+        hist = await _history_for(client, job_id)
+        if hist and job_id in hist:
+            entry = hist[job_id]
+            outs = entry.get("outputs", {})
+            if entry.get("status"):
+                stat = entry["status"]
+            elif outs:
+                stat = "completed"
+            else:
+                stat = "running"
+            return {"job_id": job_id, "status": stat, "outputs": outs}
+
+        queue_state = await _queue_state(client)
+        mapped_buckets = {
+            "queue_running": "running",
+            "running": "running",
+            "queue_pending": "queued",
+            "queue": "queued",
         }
+        for bucket, status_name in mapped_buckets.items():
+            for entry in queue_state.get(bucket, []):
+                if isinstance(entry, dict) and (entry.get("id") == job_id or entry.get("prompt_id") == job_id):
+                    return {"job_id": job_id, "status": status_name}
+                if isinstance(entry, (list, tuple)) and job_id in entry:
+                    return {"job_id": job_id, "status": status_name}
 
-        prompt_graph = _walk_replace(api_prompt_template, mapping)
-        job_id = await _comfy_submit_prompt(client, prompt_graph)
+    raise HTTPException(404, "job_id not found")
 
-    return JSONResponse({"job_id": job_id, "status": "queued"})
-
-
-@app.get("/jobs/{job_id}")
-async def get_job(job_id: str):
-    async with httpx.AsyncClient(timeout=30) as client:
-        history = await _comfy_history(client, job_id)
-        if history:
-            outs = _outputs_from_history(history)
-            status = "completed" if outs else None
-            if not status:
-                q = await _comfy_queue(client)
-                # basic status inference
-                def _has(qkey):
-                    items = q.get(qkey) or []
-                    for it in items:
-                        if isinstance(it, dict) and (it.get("id")==job_id or it.get("prompt_id")==job_id):
-                            return True
-                        if isinstance(it, (list, tuple)) and job_id in it:
-                            return True
-                    return False
-                if _has("queue_running"): status = "running"
-                elif _has("queue_pending"): status = "queued"
-                else: status = "running"
-            return JSONResponse({"job_id": job_id, "status": status, "outputs": outs})
-
-        q = await _comfy_queue(client)
-        # unknown but maybe queued
-        for bucket in ("queue_running","queue_pending","running","queue"):
-            for it in q.get(bucket, []):
-                if isinstance(it, dict) and (it.get("id")==job_id or it.get("prompt_id")==job_id):
-                    return JSONResponse({"job_id": job_id, "status": "running"})
-                if isinstance(it, (list, tuple)) and job_id in it:
-                    return JSONResponse({"job_id": job_id, "status": "running"})
-
-    raise HTTPException(status_code=404, detail="job_id not found")
+# petit wrapper pour await sleep dans la boucle /run
+import asyncio
+async def asyncio_sleep(s: float):  # noqa
+    await asyncio.sleep(s)

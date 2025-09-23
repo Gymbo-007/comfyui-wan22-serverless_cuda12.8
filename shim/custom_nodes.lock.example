@@ -1,0 +1,9 @@
+# custom_nodes.lock
+# FolderName <commit-ish>
+# Use full commit hashes or immutable tags. One entry per line.
+# Example pins (replace with the revisions you audited):
+# ComfyUI-KJNodes  0123456789abcdef0123456789abcdef01234567
+# ComfyUI-GGUF     aabbccddeeff00112233445566778899aabbccdd
+# ComfyUI-VideoHelperSuite  feedfacecafebeef0123456789abcdef01234567
+# comfyui-frame-interpolation  deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+# ComfyUI-Crystools  1234567890abcdef1234567890abcdef12345678

@@ -25,6 +25,9 @@
 # Logs and runtime artifacts
 logs/
 **/*.log
+start.sh.before-test
+start.sh.current
+start.sh.baseline
 
 # Project-specific: exclude tooling not needed in final image
 shim/tools/
@@ -33,3 +36,6 @@ shim/tools/
 ComfyUI/
 models/
 workspace/
+
+# Change tracking docs
+docs/conversation_changes.md

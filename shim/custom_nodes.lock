@@ -1,0 +1,12 @@
+# FolderName <commit-ish>
+ComfyUI-KJNodes e81f33508b0821ea2f53f4f46a833fa6215626bd
+ComfyUI-GGUF be2a08330d7ec232d684e50ab938870d7529471e
+ComfyUI-VideoHelperSuite 0edce8ef7ce173ac97a3ed3d6f4636029d1a4530
+comfyui-frame-interpolation a969c01dbccd9e5510641be04eb51fe93f6bfc3d
+ComfyUI-Crystools 2af9ccf0a29c6910e6fcbdd7d2fe96f9bde44eed
+ComfyUI-Manager 2cd9a417d6fd25bae6e3af4e76d3ae8c5c989858
+rgthree-comfy 0fb1e239a903e93ef626a8c20589b38f46e39dff
+was-node-suite-comfyui ea935d1044ae5a26efa54ebeb18fe9020af49a45
+ComfyUI_essentials 9d9f4bedfc9f0321c19faf71855e228c93bd0dc9
+# ComfyUI_Unload_Model and ComfyUI-Easy-Use repositories are currently unavailable (HTTP 404 as of 2025-09-23)
+# Leave them unpinned so the bootstrap will skip them unless ALLOW_UNPINNED_CUSTOM_NODES=1.
