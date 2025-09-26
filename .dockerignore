@@ -25,6 +25,7 @@
 # Logs and runtime artifacts
 logs/
 **/*.log
+log.text
 start.sh.before-test
 start.sh.current
 start.sh.baseline

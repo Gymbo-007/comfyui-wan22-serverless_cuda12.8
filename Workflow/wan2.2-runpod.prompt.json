@@ -1,0 +1,240 @@
+{
+  "prompt": {
+    "32": {
+      "inputs": {},
+      "class_type": "PatchModelPatcherOrder"
+    },
+    "33": {
+      "inputs": {},
+      "class_type": "ModelPatchTorchSettings"
+    },
+    "35": {
+      "inputs": {},
+      "class_type": "ModelPatchTorchSettings"
+    },
+    "34": {
+      "inputs": {},
+      "class_type": "PatchModelPatcherOrder"
+    },
+    "8": {
+      "inputs": {},
+      "class_type": "ModelSamplingSD3"
+    },
+    "9": {
+      "inputs": {},
+      "class_type": "ModelSamplingSD3"
+    },
+    "7": {
+      "inputs": {},
+      "class_type": "VAELoader"
+    },
+    "36": {
+      "inputs": {},
+      "class_type": "PathchSageAttentionKJ"
+    },
+    "21": {
+      "inputs": {},
+      "class_type": "PathchSageAttentionKJ"
+    },
+    "6": {
+      "inputs": {},
+      "class_type": "CLIPTextEncode"
+    },
+    "13": {
+      "inputs": {},
+      "class_type": "CLIPTextEncode"
+    },
+    "10": {
+      "inputs": {
+        "negative": [
+          "21",
+          4
+        ]
+      },
+      "class_type": "WanImageToVideo"
+    },
+    "128": {
+      "inputs": {},
+      "class_type": "easy cleanGpuUsed"
+    },
+    "43": {
+      "inputs": {
+        "model": [
+          "167",
+          43
+        ]
+      },
+      "class_type": "ModelSamplingSD3"
+    },
+    "38": {
+      "inputs": {},
+      "class_type": "ModelPatchTorchSettings"
+    },
+    "37": {
+      "inputs": {},
+      "class_type": "PatchModelPatcherOrder"
+    },
+    "39": {
+      "inputs": {},
+      "class_type": "PathchSageAttentionKJ"
+    },
+    "86": {
+      "inputs": {},
+      "class_type": "Fast Groups Muter (rgthree)"
+    },
+    "117": {
+      "inputs": {},
+      "class_type": "Note"
+    },
+    "84": {
+      "inputs": {},
+      "class_type": "UpscaleModelLoader"
+    },
+    "80": {
+      "inputs": {},
+      "class_type": "ImageUpscaleWithModel"
+    },
+    "81": {
+      "inputs": {},
+      "class_type": "RIFE VFI"
+    },
+    "126": {
+      "inputs": {},
+      "class_type": "SystemNotification|pysssss"
+    },
+    "121": {
+      "inputs": {},
+      "class_type": "easy seed"
+    },
+    "16": {
+      "inputs": {
+        "images": [
+          "264",
+          89
+        ]
+      },
+      "class_type": "VHS_VideoCombine"
+    },
+    "73": {
+      "inputs": {},
+      "class_type": "UnloadModel"
+    },
+    "85": {
+      "inputs": {},
+      "class_type": "VHS_VideoCombine"
+    },
+    "2": {
+      "inputs": {},
+      "class_type": "KSamplerAdvanced"
+    },
+    "72": {
+      "inputs": {},
+      "class_type": "UnloadModel"
+    },
+    "3": {
+      "inputs": {},
+      "class_type": "KSamplerAdvanced"
+    },
+    "4": {
+      "inputs": {
+        "vae": [
+          "392",
+          128
+        ]
+      },
+      "class_type": "VAEDecode"
+    },
+    "74": {
+      "inputs": {},
+      "class_type": "UnloadModel"
+    },
+    "94": {
+      "inputs": {},
+      "class_type": "ImageResizeKJv2"
+    },
+    "31": {
+      "inputs": {},
+      "class_type": "KSamplerAdvanced"
+    },
+    "83": {
+      "inputs": {},
+      "class_type": "ColorMatch"
+    },
+    "134": {
+      "inputs": {},
+      "class_type": "easy float"
+    },
+    "101": {
+      "inputs": {},
+      "class_type": "INTConstant"
+    },
+    "100": {
+      "inputs": {},
+      "class_type": "INTConstant"
+    },
+    "91": {
+      "inputs": {},
+      "class_type": "INTConstant"
+    },
+    "129": {
+      "inputs": {},
+      "class_type": "LoadImage"
+    },
+    "26": {
+      "inputs": {},
+      "class_type": "INTConstant"
+    },
+    "96": {
+      "inputs": {},
+      "class_type": "INTConstant"
+    },
+    "30": {
+      "inputs": {},
+      "class_type": "UnetLoaderGGUF"
+    },
+    "1": {
+      "inputs": {},
+      "class_type": "CLIPLoader"
+    },
+    "20": {
+      "inputs": {},
+      "class_type": "LoraLoaderModelOnly"
+    },
+    "127": {
+      "inputs": {},
+      "class_type": "Note"
+    },
+    "104": {
+      "inputs": {},
+      "class_type": "Text Multiline"
+    },
+    "136": {
+      "inputs": {},
+      "class_type": "Note"
+    },
+    "107": {
+      "inputs": {},
+      "class_type": "Text Multiline"
+    },
+    "29": {
+      "inputs": {},
+      "class_type": "UnetLoaderGGUF"
+    },
+    "19": {
+      "inputs": {},
+      "class_type": "LoraLoaderModelOnly"
+    },
+    "89": {
+      "inputs": {},
+      "class_type": "LoraLoaderModelOnly"
+    },
+    "88": {
+      "inputs": {},
+      "class_type": "LoraLoaderModelOnly"
+    },
+    "90": {
+      "inputs": {},
+      "class_type": "LoraLoaderModelOnly"
+    }
+  }
+}

@@ -1,0 +1,188 @@
+{
+  "info": {
+    "name": "RunPod ComfyUI Shim",
+    "description": "Collection de requêtes pour tester l'API shim permettant de piloter ComfyUI sur RunPod.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": {
+      "major": 1,
+      "minor": 0,
+      "patch": 0
+    }
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{api_key}}",
+            "type": "text",
+            "disabled": false
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Run Workflow (default)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{api_key}}",
+            "type": "text",
+            "disabled": false
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "workflow_path",
+              "value": "{{default_workflow_path}}",
+              "type": "text"
+            },
+            {
+              "key": "wait",
+              "value": "true",
+              "type": "text"
+            },
+            {
+              "key": "wait_timeout_s",
+              "value": "120",
+              "type": "text",
+              "disabled": true
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/run",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "run"
+          ]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const json = pm.response.json();",
+              "if (json && json.job_id) {",
+              "  pm.collectionVariables.set('job_id', json.job_id);",
+              "  console.log('job_id sauvegardé dans la collection:', json.job_id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Run Workflow (upload)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{api_key}}",
+            "type": "text",
+            "disabled": false
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "workflow",
+              "src": "{{local_workflow_file}}",
+              "type": "file"
+            },
+            {
+              "key": "wait",
+              "value": "false",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/run",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "run"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Status",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{api_key}}",
+            "type": "text",
+            "disabled": false
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/status/{{job_id}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["status", "{{job_id}}"]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8080",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "your-api-key",
+      "type": "string"
+    },
+    {
+      "key": "default_workflow_path",
+      "value": "/workspace/ComfyUI/user/default/workflows/_auto_default.json",
+      "type": "string"
+    },
+    {
+      "key": "local_workflow_file",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "job_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

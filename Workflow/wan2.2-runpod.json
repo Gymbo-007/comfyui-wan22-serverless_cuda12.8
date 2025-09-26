@@ -1,0 +1,720 @@
+{
+  "1": {
+    "inputs": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Charger CLIP"
+    }
+  },
+  "2": {
+    "inputs": {
+      "add_noise": "disable",
+      "noise_seed": 0,
+      "steps": [
+        "91",
+        0
+      ],
+      "cfg": "euler",
+      "sampler_name": "beta",
+      "scheduler": "beta",
+      "start_at_step": [
+        "101",
+        0
+      ],
+      "end_at_step": "disable",
+      "return_with_leftover_noise": "disable",
+      "model": [
+        "9",
+        0
+      ],
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "10",
+        1
+      ],
+      "latent_image": [
+        "73",
+        0
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler 3"
+    }
+  },
+  "3": {
+    "inputs": {
+      "add_noise": "disable",
+      "noise_seed": [
+        "121",
+        0
+      ],
+      "steps": [
+        "91",
+        0
+      ],
+      "cfg": "euler",
+      "sampler_name": "beta",
+      "scheduler": "beta",
+      "start_at_step": [
+        "100",
+        0
+      ],
+      "end_at_step": [
+        "101",
+        0
+      ],
+      "return_with_leftover_noise": "enable",
+      "model": [
+        "8",
+        0
+      ],
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "10",
+        1
+      ],
+      "latent_image": [
+        "72",
+        0
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler 2"
+    }
+  },
+  "4": {
+    "inputs": {
+      "samples": [
+        "74",
+        0
+      ],
+      "vae": [
+        "7",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "6": {
+    "inputs": {
+      "text": [
+        "107",
+        0
+      ],
+      "clip": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Negative"
+    }
+  },
+  "7": {
+    "inputs": {
+      "vae_name": "wan_2.1_vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Charger VAE"
+    }
+  },
+  "8": {
+    "inputs": {
+      "shift": 8.000000000000002,
+      "model": [
+        "32",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModèleÉchantillonnageSD3"
+    }
+  },
+  "9": {
+    "inputs": {
+      "shift": 8,
+      "model": [
+        "34",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModèleÉchantillonnageSD3"
+    }
+  },
+  "10": {
+    "inputs": {
+      "width": [
+        "94",
+        1
+      ],
+      "height": [
+        "94",
+        2
+      ],
+      "length": [
+        "96",
+        0
+      ],
+      "batch_size": 1,
+      "positive": [
+        "13",
+        0
+      ],
+      "negative": [
+        "6",
+        0
+      ],
+      "vae": [
+        "7",
+        0
+      ],
+      "start_image": [
+        "128",
+        0
+      ]
+    },
+    "class_type": "WanImageToVideo",
+    "_meta": {
+      "title": "WanImageVersVidéo"
+    }
+  },
+  "13": {
+    "inputs": {
+      "text": [
+        "104",
+        0
+      ],
+      "clip": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Positive"
+    }
+  },
+  "16": {
+    "inputs": {
+      "frame_rate": "__FPS__",
+      "loop_count": 0,
+      "filename_prefix": "wan2-2/base/2025-09-24/2025-09-24-T095636",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "Video Combine 🎥🅥🅗🅢"
+    }
+  },
+  "19": {
+    "inputs": {
+      "lora_name": "high_noise_model.safetensors",
+      "strength_model": 1,
+      "model": [
+        "29",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoraLoaderModelOnly"
+    }
+  },
+  "20": {
+    "inputs": {
+      "lora_name": "low_noise_model.safetensors",
+      "strength_model": 1,
+      "model": [
+        "30",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoraLoaderModelOnly"
+    }
+  },
+  "21": {
+    "inputs": {
+      "sage_attention": "auto",
+      "model": [
+        "19",
+        0
+      ]
+    },
+    "class_type": "PathchSageAttentionKJ",
+    "_meta": {
+      "title": "Patch Sage Attention KJ"
+    }
+  },
+  "26": {
+    "inputs": {
+      "value": 600
+    },
+    "class_type": "INTConstant",
+    "_meta": {
+      "title": "Resolution (Long Side)"
+    }
+  },
+  "29": {
+    "inputs": {
+      "unet_name": "wan2.2_i2v_high_noise_14B_Q8_0.gguf"
+    },
+    "class_type": "UnetLoaderGGUF",
+    "_meta": {
+      "title": "Unet Loader (GGUF) High"
+    }
+  },
+  "30": {
+    "inputs": {
+      "unet_name": "wan2.2_i2v_low_noise_14B_Q8_0.gguf"
+    },
+    "class_type": "UnetLoaderGGUF",
+    "_meta": {
+      "title": "Unet Loader (GGUF) Low"
+    }
+  },
+  "31": {
+    "inputs": {
+      "add_noise": "enable",
+      "noise_seed": [
+        "121",
+        0
+      ],
+      "steps": [
+        "91",
+        0
+      ],
+      "cfg": "euler",
+      "sampler_name": "beta",
+      "scheduler": 0,
+      "start_at_step": 0,
+      "end_at_step": [
+        "100",
+        0
+      ],
+      "return_with_leftover_noise": "enable",
+      "model": [
+        "43",
+        0
+      ],
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "10",
+        1
+      ],
+      "latent_image": [
+        "10",
+        2
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler 1"
+    }
+  },
+  "32": {
+    "inputs": {
+      "patch_order": "weight_patch_first",
+      "full_load": "auto",
+      "model": [
+        "33",
+        0
+      ]
+    },
+    "class_type": "PatchModelPatcherOrder",
+    "_meta": {
+      "title": "Patch Model Patcher Order"
+    }
+  },
+  "33": {
+    "inputs": {
+      "enable_fp16_accumulation": true,
+      "model": [
+        "21",
+        0
+      ]
+    },
+    "class_type": "ModelPatchTorchSettings",
+    "_meta": {
+      "title": "Model Patch Torch Settings"
+    }
+  },
+  "34": {
+    "inputs": {
+      "patch_order": "weight_patch_first",
+      "full_load": "auto",
+      "model": [
+        "35",
+        0
+      ]
+    },
+    "class_type": "PatchModelPatcherOrder",
+    "_meta": {
+      "title": "Patch Model Patcher Order"
+    }
+  },
+  "35": {
+    "inputs": {
+      "enable_fp16_accumulation": true,
+      "model": [
+        "36",
+        0
+      ]
+    },
+    "class_type": "ModelPatchTorchSettings",
+    "_meta": {
+      "title": "Model Patch Torch Settings"
+    }
+  },
+  "36": {
+    "inputs": {
+      "sage_attention": "auto",
+      "model": [
+        "20",
+        0
+      ]
+    },
+    "class_type": "PathchSageAttentionKJ",
+    "_meta": {
+      "title": "Patch Sage Attention KJ"
+    }
+  },
+  "37": {
+    "inputs": {
+      "patch_order": "weight_patch_first",
+      "full_load": "auto",
+      "model": [
+        "38",
+        0
+      ]
+    },
+    "class_type": "PatchModelPatcherOrder",
+    "_meta": {
+      "title": "Patch Model Patcher Order"
+    }
+  },
+  "38": {
+    "inputs": {
+      "enable_fp16_accumulation": true,
+      "model": [
+        "39",
+        0
+      ]
+    },
+    "class_type": "ModelPatchTorchSettings",
+    "_meta": {
+      "title": "Model Patch Torch Settings"
+    }
+  },
+  "39": {
+    "inputs": {
+      "sage_attention": "auto",
+      "model": [
+        "29",
+        0
+      ]
+    },
+    "class_type": "PathchSageAttentionKJ",
+    "_meta": {
+      "title": "Patch Sage Attention KJ"
+    }
+  },
+  "43": {
+    "inputs": {
+      "shift": 8.000000000000002,
+      "model": [
+        "37",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModèleÉchantillonnageSD3"
+    }
+  },
+  "72": {
+    "inputs": {
+      "value": [
+        "31",
+        0
+      ],
+      "model": [
+        "43",
+        0
+      ]
+    },
+    "class_type": "UnloadModel",
+    "_meta": {
+      "title": "UnloadModel"
+    }
+  },
+  "73": {
+    "inputs": {
+      "value": [
+        "3",
+        0
+      ],
+      "model": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "UnloadModel",
+    "_meta": {
+      "title": "UnloadModel"
+    }
+  },
+  "74": {
+    "inputs": {
+      "value": [
+        "2",
+        0
+      ],
+      "model": [
+        "9",
+        0
+      ]
+    },
+    "class_type": "UnloadModel",
+    "_meta": {
+      "title": "UnloadModel"
+    }
+  },
+  "80": {
+    "inputs": {
+      "upscale_model": [
+        "84",
+        0
+      ],
+      "image": [
+        "83",
+        0
+      ]
+    },
+    "class_type": "ImageUpscaleWithModel",
+    "_meta": {
+      "title": "Agrandir l'Image (à l'aide du Modèle)"
+    }
+  },
+  "81": {
+    "inputs": {
+      "ckpt_name": "rife49.pth",
+      "clear_cache_after_n_frames": 16,
+      "multiplier": 4,
+      "fast_mode": false,
+      "ensemble": true,
+      "scale_factor": 1,
+      "frames": [
+        "80",
+        0
+      ]
+    },
+    "class_type": "RIFE VFI",
+    "_meta": {
+      "title": "Frame Interpolation (RIFE VFI)"
+    }
+  },
+  "83": {
+    "inputs": {
+      "method": "reinhard",
+      "strength": 0.3,
+      "multithread": true,
+      "image_ref": [
+        "129",
+        0
+      ],
+      "image_target": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "ColorMatch",
+    "_meta": {
+      "title": "Color Match"
+    }
+  },
+  "84": {
+    "inputs": {
+      "model_name": "RealESRGAN_x2plus.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "Charger le modèle de mise à l'échelle"
+    }
+  },
+  "85": {
+    "inputs": {
+      "frame_rate": "__FPS__",
+      "loop_count": 0,
+      "filename_prefix": "wan2-2/final/2025-09-24/2025-09-24-T095636",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "81",
+        0
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "Video Combine 🎥🅥🅗🅢"
+    }
+  },
+  "91": {
+    "inputs": {
+      "value": "__STEPS__"
+    },
+    "class_type": "INTConstant",
+    "_meta": {
+      "title": "Total Steps"
+    }
+  },
+  "94": {
+    "inputs": {
+      "width": [
+        "26",
+        0
+      ],
+      "height": [
+        "26",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "keep_proportion": "resize",
+      "pad_color": "0, 0, 0",
+      "crop_position": "center",
+      "divisible_by": 16,
+      "device": "cpu",
+      "image": [
+        "129",
+        0
+      ]
+    },
+    "class_type": "ImageResizeKJv2",
+    "_meta": {
+      "title": "Resize Image v2"
+    }
+  },
+  "96": {
+    "inputs": {
+      "value": "__NUM_FRAMES__"
+    },
+    "class_type": "INTConstant",
+    "_meta": {
+      "title": "Length"
+    }
+  },
+  "100": {
+    "inputs": {
+      "value": 2
+    },
+    "class_type": "INTConstant",
+    "_meta": {
+      "title": "Stage 1 End Step"
+    }
+  },
+  "101": {
+    "inputs": {
+      "value": 4
+    },
+    "class_type": "INTConstant",
+    "_meta": {
+      "title": "Stage 2 End Step"
+    }
+  },
+  "104": {
+    "inputs": {
+      "text": "__PROMPT__"
+    },
+    "class_type": "Text Multiline",
+    "_meta": {
+      "title": "Positive Prompt"
+    }
+  },
+  "107": {
+    "inputs": {
+      "text": "__NEGATIVE__"
+    },
+    "class_type": "Text Multiline",
+    "_meta": {
+      "title": "Negative Prompt"
+    }
+  },
+  "121": {
+    "inputs": {
+      "seed": "__SEED__"
+    },
+    "class_type": "easy seed",
+    "_meta": {
+      "title": "EasySeed"
+    }
+  },
+  "128": {
+    "inputs": {
+      "anything": [
+        "94",
+        0
+      ]
+    },
+    "class_type": "easy cleanGpuUsed",
+    "_meta": {
+      "title": "Clean VRAM Used"
+    }
+  },
+  "129": {
+    "inputs": {
+      "image": "__INPUT_IMAGE_FILENAME__"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Charger Image"
+    }
+  },
+  "134": {
+    "inputs": {
+      "value": 3
+    },
+    "class_type": "easy float",
+    "_meta": {
+      "title": "Lora Strength"
+    }
+  }
+}

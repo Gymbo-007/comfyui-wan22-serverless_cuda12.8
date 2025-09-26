@@ -31,11 +31,11 @@ COMFY_SYNC_ON_BOOT="${COMFY_SYNC_ON_BOOT:-0}"
 SKIP_OPTIONAL_NODES="${SKIP_OPTIONAL_NODES:-1}"
 SAGE_ENABLE="${SAGE_ENABLE:-0}"   # 0 par défaut pour un boot rapide
 
-DEFAULT_WORKFLOW="${DEFAULT_WORKFLOW:-/workspace/ComfyUI/user/default/workflows/Wan22_I2V_Native_3_stage.json}"
+DEFAULT_WORKFLOW="${DEFAULT_WORKFLOW:-/opt/workflows/wan2.2-runpod.sim.json}"
 COMFY_AUTO_QUEUE="${COMFY_AUTO_QUEUE:-0}"
 
 COMFY_UI_AUTOLOAD="${COMFY_UI_AUTOLOAD:-1}"
-COMFY_UI_AUTOLOAD_ON_EVERY_VISIT="${COMFY_UI_AUTOLOAD_ON_EVERY_VISIT:-0}"
+COMFY_UI_AUTOLOAD_ON_EVERY_VISIT="${COMFY_UI_AUTOLOAD_ON_EVERY_VISIT:-1}"
 
 CRYSTOOLS_REPO="${CRYSTOOLS_REPO:-https://github.com/crystian/ComfyUI-Crystools.git}"
 CRYSTOOLS_FALLBACK_1="${CRYSTOOLS_FALLBACK_1:-https://github.com/crystools/ComfyUI-Crystools.git}"
@@ -50,7 +50,7 @@ SHIM_ENABLED="${SHIM_ENABLED:-1}"
 SHIM_HOST="${SHIM_HOST:-0.0.0.0}"
 SHIM_PORT="${SHIM_PORT:-8080}"
 SHIM_DIR="${SHIM_DIR:-/opt/shim}"
-SHIM_WORKFLOW_PATH="${SHIM_WORKFLOW_PATH:-${DEFAULT_WORKFLOW}}"
+SHIM_WORKFLOW_PATH="${SHIM_WORKFLOW_PATH:-/opt/workflows/wan2.2-runpod.json}"
 SHIM_WORKERS="${SHIM_WORKERS:-1}"
 SHIM_LOG_LEVEL="${SHIM_LOG_LEVEL:-info}"
 SHIM_RELOAD="${SHIM_RELOAD:-0}"
@@ -312,6 +312,14 @@ fi
 SAGE_SRC_DIR="${WORKDIR}/SageAttention"
 USE_SAGE_ATTENTION=0
 if [ "${SAGE_ENABLE}" = "1" ]; then
+  once "apt-python-dev" bash -lc '
+    if dpkg -s python3-dev >/dev/null 2>&1; then
+      exit 0
+    fi
+    echo "[Sage][APT] Installing python3-dev for CUDA extension build…"
+    DEBIAN_FRONTEND=noninteractive apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3-dev
+  '
   if [ -d "${SAGE_SRC_DIR}/.git" ]; then
     echo "[Sage] Repository already present at ${SAGE_SRC_DIR}"
   else
@@ -538,9 +546,20 @@ mkdir -p /workspace/models
 WF_DST_DIR="${COMFY_DIR}/user/default/workflows"
 mkdir -p "${WF_DST_DIR}"
 
+WF_HASH=""
 COMFY_EXTRA_ARGS=()
 if [ -f "${DEFAULT_WORKFLOW}" ]; then
   cp -f "${DEFAULT_WORKFLOW}" "${WF_DST_DIR}/_auto_default.json"
+  WF_HASH="$(hash_of "${WF_DST_DIR}/_auto_default.json")"
+  echo "[Workflow] Installed default workflow → ${WF_DST_DIR}/_auto_default.json (sha=${WF_HASH:-unknown})"
+  # Backward compatibility: keep legacy shim path populated if env still points there
+  LEGACY_SHIM_DIR="/workspace/shim/templates"
+  LEGACY_SHIM_PATH="${LEGACY_SHIM_DIR}/wan-2.2_shimv1.1-for-shim.json"
+  mkdir -p "${LEGACY_SHIM_DIR}"
+  if [ -f "${SHIM_WORKFLOW_PATH}" ]; then
+    cp -f "${SHIM_WORKFLOW_PATH}" "${LEGACY_SHIM_PATH}"
+    echo "[Workflow] Legacy shim copy refreshed at ${LEGACY_SHIM_PATH}"
+  fi
   [ "${COMFY_AUTO_QUEUE}" = "1" ] && COMFY_EXTRA_ARGS+=(--infinite-queue-at-startup "${DEFAULT_WORKFLOW}")
 else
   echo "[Workflow][WARN] DEFAULT_WORKFLOW not found at: ${DEFAULT_WORKFLOW}"
@@ -565,36 +584,79 @@ if [ "${COMFY_UI_AUTOLOAD}" = "1" ] && [ -f "${WF_DST_DIR}/_auto_default.json" ]
   EXT_DIR="${WEB_ROOT}/extensions/kylee-autoload"
   mkdir -p "${EXT_DIR}"
   cp -f "${WF_DST_DIR}/_auto_default.json" "${EXT_DIR}/default_workflow.json"
-  cat > "${EXT_DIR}/main.js" <<'JS'
+  AUTOLOAD_FLAG="kylee_autoload_done"
+  if [ -n "${WF_HASH}" ]; then
+    AUTOLOAD_FLAG="kylee_autoload_done_${WF_HASH}"
+  fi
+  EVERY_VISIT="false"
+  if [ "${COMFY_UI_AUTOLOAD_ON_EVERY_VISIT}" = "1" ]; then
+    EVERY_VISIT="true"
+  fi
+  echo "[Workflow] Autoload extension ready at ${EXT_DIR} (flag=${AUTOLOAD_FLAG} every_visit=${EVERY_VISIT})"
+  cat > "${EXT_DIR}/main.js" <<JS
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
-async function loadDefaultWorkflow({ everyVisit=false } = {}) {
-  try {
-    const FLAG = "kylee_autoload_done";
-    if (!everyVisit && localStorage.getItem(FLAG) === "1") return;
-    const candidates = [
-      "/extensions/kylee-autoload/default_workflow.json",
-      "/user/default/workflows/_auto_default.json",
-      "/ComfyUI/user/default/workflows/_auto_default.json"
-    ];
-    let wf=null,lastErr=null;
-    for (const url of candidates) {
-      try { const r=await fetch(url,{cache:"no-store"});
-        if (r.ok){ wf=await r.json(); console.log("[Kylee-Autoload] Loaded:", url); break; }
-        lastErr=`HTTP ${r.status}`;
-      } catch(e){ lastErr=e; }
+
+async function loadDefaultWorkflow({ everyVisit = false } = {}) {
+  const FLAG = "${AUTOLOAD_FLAG}";
+  if (!everyVisit && window.localStorage.getItem(FLAG) === "1") {
+    return;
+  }
+
+  const candidates = [
+    "/extensions/kylee-autoload/default_workflow.json",
+    "/user/default/workflows/_auto_default.json",
+    "/ComfyUI/user/default/workflows/_auto_default.json",
+  ];
+
+  let workflow = null;
+  let lastErr = null;
+  for (const url of candidates) {
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (res.ok) {
+        workflow = await res.json();
+        console.log("[Kylee-Autoload] Loaded:", url);
+        break;
+      }
+      lastErr = "HTTP " + res.status;
+    } catch (err) {
+      lastErr = err;
     }
-    if (!wf) { console.warn("[Kylee-Autoload] Could not fetch workflow:", lastErr); return; }
-    await app.loadGraphData(wf);
-    console.log("[Kylee-Autoload] Default workflow loaded.");
-    if (!everyVisit) localStorage.setItem(FLAG,"1");
-  } catch(e){ console.warn("[Kylee-Autoload] Failed:", e); }
+  }
+  if (!workflow) {
+    console.warn("[Kylee-Autoload] Could not fetch workflow:", lastErr);
+    return;
+  }
+
+  try {
+    await app.loadGraphData(workflow);
+    console.log("[Kylee-Autoload] Default workflow loaded. everyVisit=" + everyVisit);
+    if (everyVisit) {
+      window.localStorage.removeItem(FLAG);
+    } else {
+      window.localStorage.setItem(FLAG, "1");
+    }
+  } catch (err) {
+    console.warn("[Kylee-Autoload] Failed to load workflow:", err);
+  }
 }
-app.registerExtension({ name:"kylee-autoload", async setup(){
-  try { await api.ready; } catch {}
-  const every = (window?.KYLEE_AUTOLOAD_EVERY_VISIT === true);
-  setTimeout(()=>loadDefaultWorkflow({everyVisit: every}), 250);
-}});
+
+app.registerExtension({
+  name: "kylee-autoload",
+  async setup() {
+    try {
+      await api.ready;
+    } catch (err) {
+      console.warn("[Kylee-Autoload] api.ready failed:", err);
+    }
+    const every = window?.KYLEE_AUTOLOAD_EVERY_VISIT === true;
+    if (every) {
+      window.localStorage.removeItem("${AUTOLOAD_FLAG}");
+    }
+    setTimeout(() => loadDefaultWorkflow({ everyVisit: every }), 250);
+  },
+});
 JS
   if [ "${COMFY_UI_AUTOLOAD_ON_EVERY_VISIT}" = "1" ]; then
     echo 'window.KYLEE_AUTOLOAD_EVERY_VISIT = true;' > "${EXT_DIR}/preload.js"

@@ -1,6 +1,6 @@
 # Image "warm" : ComfyUI + deps Shim préinstallés pour un boot très rapide
-# CUDA 12.8 runtime → nécessaire pour RTX 50xx + SageAttention 2
-FROM nvidia/cuda:12.8.0-runtime-ubuntu22.04
+# CUDA 12.8 devel (nvcc présent) → nécessaire pour RTX 50xx + SageAttention 2++ build
+FROM nvidia/cuda:12.8.0-devel-ubuntu22.04
 
 ARG GH_TOKEN=""
 
@@ -10,9 +10,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_CACHE_DIR=/workspace/.cache/pip \
     COMFY_DIR=/workspace/ComfyUI
 
-# Sys deps de base
+# Sys deps de base + toolchain pour compilations CUDA (SageAttention)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      git curl ca-certificates python3 python3-venv python3-pip \
+      git curl ca-certificates python3 python3-venv python3-pip python3-dev \
+      build-essential ninja-build pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Optional GitHub token support for build-time clones
@@ -33,15 +34,17 @@ RUN --mount=type=cache,target=/workspace/.cache/pip \
 ARG COMFY_SHA=master
 RUN git clone --depth 1 --branch ${COMFY_SHA} https://github.com/comfyanonymous/ComfyUI.git $COMFY_DIR
 RUN --mount=type=cache,target=/workspace/.cache/pip \
-    bash -lc '$VENV_DIR/bin/pip install -r $COMFY_DIR/requirements.txt'
-
-# Shim deps (on ne pin PAS pydantic ici → évite les downgrades lents)
-RUN --mount=type=cache,target=/workspace/.cache/pip \
-    bash -lc '$VENV_DIR/bin/pip install fastapi uvicorn httpx'
+    bash -lc '$VENV_DIR/bin/pip install --no-cache-dir -r $COMFY_DIR/requirements.txt && \
+              $VENV_DIR/bin/pip install --no-cache-dir fastapi uvicorn httpx'
 
 # Ajoute l'app Shim (maintenue dans ./shim/ dans ton repo)
 RUN mkdir -p /opt/shim
 COPY shim/ /opt/shim/
+
+# Workflows packagés (auto chargés au démarrage)
+RUN mkdir -p /opt/workflows /opt/workflows/shim
+COPY Workflow/wan2.2-runpod.sim.json /opt/workflows/wan2.2-runpod.sim.json
+COPY Workflow/wan2.2-runpod.json /opt/workflows/wan2.2-runpod.json
 
 # Basculer vers bash pour les RUN suivants (pipefail requis)
 SHELL ["/bin/bash", "-c"]

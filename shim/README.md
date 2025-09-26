@@ -53,6 +53,8 @@ Environment Reference (partial)
 - `SHIM_MAX_WAIT_SECONDS` – default blocking wait window for `/run` (seconds, default `600`).
 - `SHIM_POLL_INTERVAL` – queue polling cadence (seconds, default `0.75`).
 - `COMFY_API_URL` – override when ComfyUI is exposed elsewhere.
+- `COMFY_UI_AUTOLOAD` – injects an extension that loads the default workflow on first visit (default `1`).
+- `COMFY_UI_AUTOLOAD_ON_EVERY_VISIT` – when `1`, reload the workflow on every UI visit (default `1` now that the API relies on it).
 - `JUPYTER_ENABLED` – set to `1` to start JupyterLab; when enabled the script creates a random token if none is provided.
 
 Notes
